@@ -14,8 +14,7 @@ MOVE COUNT
 DECRYPT COUNT CHARACTERS AND PRINT
 [<<<,                                       (0; *INPUT; 0; 0; *COUNT)
     >>+++++[<+++++>-]<+                     (0; INPUT; *26; 0; COUNT)
-    <<++++++++[>>>++++++++++++<<<-]>>>--    (0; INPUT; 26; *94; COUNT)
-    [<<->>-]<<                              (0; *INPUT minus 94; 26; 0; COUNT)
+    <++++                                   (0; *INPUT plus 4; 26; 0; COUNT)
     [>->+<[>]>[<+>-]<<[<]>-]>[-]            (0; 0; *0; MOD; COUNT)
     <++++++++[<++++++++++++>-]<+            (*97; 0; 0; MOD; COUNT)
     [>>>+<<<-]                              (*0; 0; 0; MOD plus 97; COUNT)
