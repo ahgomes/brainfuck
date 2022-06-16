@@ -21,7 +21,8 @@ let rec prog i =
     | '+' -> Array.set mem !ptr (mem.(!ptr) + 1); prog (i + 1)
     | '-' -> Array.set mem !ptr (mem.(!ptr) - 1); prog (i + 1)
     | '.' -> print_char (Char.chr mem.(!ptr)); prog (i + 1)
-    | ',' -> Array.set mem !ptr (Char.code (input_char stdin)); prog (i + 1)
+    | ',' -> flush stdout; Array.set mem !ptr (Char.code (input_char stdin));
+             prog (i + 1)
     | '[' -> if mem.(!ptr) = 0 then prog ((match_right (i+1) 0) + 1)
              else (Stack.push i loop_stack; prog (i + 1))
     | ']' -> prog (Stack.pop loop_stack)

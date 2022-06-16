@@ -1,17 +1,31 @@
 #!/usr/bin/perl -l
 
-use List::AllUtils qw(reduce min indexes firstidx);
+use List::AllUtils qw(reduce min firstidx);
 use Sub::Infix;
 
 BEGIN {
-  *ADD = infix { ($a, $b) = @_; ($a =~ /\d+/ ? "+" x $a : $a).("+" x $b) };
-  *MUL = infix { ("+" x shift) . ("[>" . ("+" x shift) . "<-]>") }
+  *ADD = infix { add(@_) };
+  *MUL = infix { mul(@_) };
+  *SUB = infix { dif(@_) };
+
+  %replace = (
+      "+" => "|ADD|",
+      "-" => "|SUB|",
+      "*" => "|MUL|", );
 };
 
-%replace = (
-    "+" => "|ADD|",
-    "*" => "|MUL|",
-);
+sub add { ($a, $b) = @_; ($a =~ /\d+/ ? "+" x $a : $a).("+" x $b) }
+sub mul {
+  $a = shift; $b = ("[>".("+" x shift)."<-]>");
+  $a =~ /\d+/ ? ("+" x $a).$b : $a =~ />[^<]+$/ ?
+  $a.(do {%r=(">"=>"<","<"=>">");($b=$b) =~ s/(<|>)/$r{$1}/g; $b}) : $a.$b
+}
+sub dif {
+  ($a, $b) = @_;
+  $a !~ /\d+/ ? $a.("-" x $b) : ($a-$b > 0 ? "+" : "-") x abs $a-$b
+}
+
+sub rep { ($eq = shift) =~ s/([\+\-\*])/$replace{$1}/g; $eq }
 
 sub cnv {
   @r = (shift, ""); $b = shift;
@@ -37,11 +51,7 @@ sub min_eq {
   return @eqs [firstidx {$_ == min @eq_lens} @eq_lens];
 }
 
-sub bf_code {
-  $eq = min_eq shift; $eq =~ s/([+]|[*])/$replace{$1}/g;
-  return (eval $eq).".[-]";
-}
+sub bf_from_code { eval rep min_eq shift }
+sub bf_from_char { bf_from_code ord shift}
 
-foreach $code (map { ord } split //, <STDIN>) {
-  print bf_code $code;
-}
+sub bf_print { shift."." }
