@@ -55,7 +55,7 @@ sub min_eq {
 }
 sub neg_eq {
   if (($eq = shift) =~ s/(\*)/$&-/g) {
-    return $eq if ($eq =~ s/(\+)/-/g);
+    $eq =~ s/(\+)/-/g; return $eq;
   }
   return "0-".(eval $eq);
 }
@@ -80,7 +80,8 @@ sub bf_from_string {
   return $result;
 }
 
-print bf_from_string("Hello, world!\n")."\n";
+$bf_res = bf_from_string("hey, fucker! :p\n");
+print $bf_res."\n";
 
 # perl brainfuck intepreter adapted from
 # http://rosettacode.org/wiki/Execute_Brain****#Perl
@@ -100,4 +101,4 @@ sub interp {
   eval join ';', map @CODE{ /./g }, shift;
 }
 
-interp bf_from_string "Hello, world!\n";
+interp $bf_res;
