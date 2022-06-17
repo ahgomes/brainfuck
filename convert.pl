@@ -1,11 +1,12 @@
-#!/usr/bin/perl -l
+#!/usr/bin/perl
 
 use List::AllUtils qw(reduce min firstidx);
 use Sub::Infix;
 use subs qw( add mul dif rep
              cnv bf_eq eq_len min_eq neg_eq
              bf_print bf_clear bf_shift
-             bf_from_code bf_from_char bf_from_string );
+             bf_from_num bf_from_code bf_from_char bf_from_string
+             interp );
 
 BEGIN {
   *ADD = infix { add(@_) };
@@ -29,7 +30,6 @@ sub dif {
   ($a, $b) = @_;
   $a !~ /\d+/ ? $a.("-" x $b) : ($a-$b > 0 ? "+" : "-") x abs $a-$b
 }
-
 sub rep { ($eq = shift) =~ s/((?<=\d)[\+\-\*])/$replace{$1}/g; $eq }
 
 sub cnv {
@@ -37,7 +37,6 @@ sub cnv {
   until ($r[0] == 0) { @r = ( -1 & $r[0] / $b, ($r[0] % $b) . $r[1] ) }
   return $r[1];
 }
-
 sub bf_eq {
   $n = shift; $base = shift;
   $eq = reduce {"($a*$base+$b)"} split //, $n;
@@ -46,9 +45,7 @@ sub bf_eq {
   if ($eq =~ s/(\(.*\))//g) { $eq = (eval $1).$eq }
   return $eq;
 }
-
 sub eq_len { $eq = shift =~ s/(\*)/\+6\+/r; return eval $eq }
-
 sub min_eq {
   $x = shift; @b = 4 .. 17;
   return "$x+0" if $x < 5;
@@ -56,7 +53,6 @@ sub min_eq {
   @eq_lens = map {eq_len $_} @eqs;
   return @eqs [firstidx {$_ == min @eq_lens} @eq_lens];
 }
-
 sub neg_eq {
   if (($eq = shift) =~ s/(\*)/$&-/g) {
     return $eq if ($eq =~ s/(\+)/-/g);
@@ -70,7 +66,8 @@ sub bf_shift {
   ($n = shift) > 0 ? bf_from_code($n) : eval rep neg_eq min_eq abs $n
 }
 
-sub bf_from_code { eval rep min_eq shift }
+sub bf_from_num { eval rep min_eq shift }
+sub bf_from_code { goto &bf_from_num }
 sub bf_from_char { bf_from_code ord shift}
 sub bf_from_string {
   ($prev, @rest) = map { ord } split //, shift;
@@ -83,4 +80,24 @@ sub bf_from_string {
   return $result;
 }
 
-print bf_from_string "Hello, world!\n";
+print bf_from_string("Hello, world!\n")."\n";
+
+# perl brainfuck intepreter adapted from
+# http://rosettacode.org/wiki/Execute_Brain****#Perl
+our %CODE = split ' ', <<'END';
+  >  $ptr++
+  <  $ptr--
+  +  $memory[$ptr]++
+  -  $memory[$ptr]--
+  ,  $memory[$ptr]=ord(getc)
+  .  print(chr($memory[$ptr]))
+  [  while($memory[$ptr]){
+  ]  }
+END
+
+sub interp {
+  my ($ptr, @memory) = 0;
+  eval join ';', map @CODE{ /./g }, shift;
+}
+
+interp bf_from_string "Hello, world!\n";
