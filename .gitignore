@@ -1,2 +1,10 @@
+# MACOS files
 .DS_Store
+
+# debugging
 test.*
+
+# ocamlbuild
+_build/
+*.native
+*.out
