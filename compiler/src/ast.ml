@@ -1,3 +1,4 @@
+
 type id = string
 
 type binop =
@@ -13,3 +14,5 @@ type exp =
 | IsZero of exp
 | Assn of exp * exp
 | Decl of id * exp
+
+type prog = exp list
