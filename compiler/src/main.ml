@@ -5,7 +5,7 @@ let code = really_input_string ic (in_channel_length ic)
 ;; flush stdout; close_in ic
 
 let wr oc =
-  Printf.fprintf oc "%s" code; flush stdout;
+  output_string oc code; flush stdout;
   close_out oc
 
 let main () =

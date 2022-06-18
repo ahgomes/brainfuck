@@ -3,10 +3,10 @@
 all: main.native
 
 main.native:
-	ocamlbuild -I src main.native
+	ocamlbuild -use-menhir -I src main.native
 
 test: main.native
-	./main.native tests/test.code tests/test.bf
+	./main.native test/test.code test/test.bf
 
 clean:
 	ocamlbuild -clean
