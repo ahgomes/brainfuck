@@ -48,7 +48,7 @@ sub bf_eq {
 sub eq_len { $eq = shift =~ s/(\*)/\+6\+/r; return eval $eq }
 sub min_eq {
   $x = shift; @b = 4 .. 17;
-  return "$x+0" if $x < 5;
+  return "$x+0" if $x < 15;
   @eqs = map {(bf_eq((cnv $x, $_), $_))} @b;
   @eq_lens = map {eq_len $_} @eqs;
   return @eqs [firstidx {$_ == min @eq_lens} @eq_lens];

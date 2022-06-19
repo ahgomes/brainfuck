@@ -8,7 +8,7 @@
     raise (Lexer_Error (Printf.sprintf "Unexpected character: '%c'" c))
 
   let illegal_esc (s:string) =
-    raise (Lexer_Error @@ s ^ " is an illegal escaped character")
+    raise (Lexer_Error (s ^ " is an illegal escaped character"))
 
   let newline lexbuf =
     lexbuf.lex_curr_p <- { (lexeme_end_p lexbuf) with
@@ -70,5 +70,5 @@ and escaped = parse
   | ['0'-'9']['0'-'9']['0'-'9'] as d
     { let x = (int_of_string d) in
       if x < 256 then Char.chr x
-      else raise illegal_char d }
+      else raise illegal_esc d }
   | _ as c { illegal_esc (Char.escaped c) }
