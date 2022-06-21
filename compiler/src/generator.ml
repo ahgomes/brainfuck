@@ -51,9 +51,7 @@ let move_dist ctxt dist : block =
 let move_to ctxt target : block = (* QUESTION: disable wrapping or no ? *)
   let dist = target - !(ctxt.ptr) in move_dist ctxt dist
 
-let div_mod n d : int * int =
-  try (n / d, n mod d)
-  with _ -> raise (Compile_Error (Printf.sprintf "%d/%d" n d))
+let div_mod n d : int * int = (n / d, n mod d)
 
 let min_tup t1 t2 = if fst t1 < fst t2 then t1 else t2
 
@@ -79,8 +77,13 @@ let rec gen_num ctxt n : block =
   else (
     let temp = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
     let dist = temp - !(ctxt.ptr) in
+    let _ = print_int dist in
     let eq = gen_eq_as n dist in
     let dir = ref 1 in
+    let init_move = if (List.length eq) mod 4 == 3
+      then (dir := Int.neg !dir; move_to ctxt temp)
+      else (move_to ctxt !(ctxt.ptr))
+    in
     let f i x =
       if i mod 2 == 0 then Inc *@ x
       else (
@@ -89,14 +92,14 @@ let rec gen_num ctxt n : block =
         dir := Int.neg !dir; loop :: move
       )
     in
-    release_loc ctxt.tape temp; List.mapi f eq |> List.flatten
+    let r =  List.mapi f eq |> List.flatten in
+    release_loc ctxt.tape temp; init_move @ r
   )
 and gen_mul_block ctxt dx n dir =
   let m1 = move_dist ctxt (dx * !dir) in
   let inc = Inc *@ n in
   let m2 = dir := Int.neg !dir; move_dist ctxt (dx * !dir) in
   m1 @ inc @ m2 @ [Dec]
-
 
 let rec gen_str s : block = []
 
