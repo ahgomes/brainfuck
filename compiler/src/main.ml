@@ -1,14 +1,11 @@
 open Generator
 
-let ic = open_in Sys.argv.(1)
-(* let code = really_input_string ic (in_channel_length ic) *)
-;; flush stdout; close_in ic
-
-let code = test_gen ()
-
-let wr oc =
-  output_string oc code; flush stdout;
-  close_out oc
+let cmp oc =
+  Lexing.from_channel (open_in Sys.argv.(1))
+  |> Parser.prog Lexer.token
+  |> gen_prog
+  |> output_string oc
+  ; flush stdout; close_out oc
 
 let main () =
   let out =
@@ -16,6 +13,6 @@ let main () =
     then Sys.argv.(2)
     else "a.out"
   in
-  out |> open_out |> wr
+  out |> open_out |> cmp
 
 ;; main ()

@@ -43,13 +43,13 @@ let release_loc tape i = Array.set tape i false
 
 let ( *@ ) x n = Array.make n x |> Array.to_list
 
-let move_dist dist : block =
+let move_dist ctxt dist : block =
+  let _ = ctxt.ptr := !(ctxt.ptr) + dist in
   if dist > 0 then Right *@ dist
     else Left *@ (abs dist)
 
 let move_to ctxt target : block = (* QUESTION: disable wrapping or no ? *)
-  let dist = target - !(ctxt.ptr) in
-  ctxt.ptr := target; move_dist dist
+  let dist = target - !(ctxt.ptr) in move_dist ctxt dist
 
 let div_mod n d : int * int =
   try (n / d, n mod d)
@@ -77,24 +77,24 @@ and eq_len e dx =
 let rec gen_num ctxt n : block =
   if n < 15 then Inc *@ n
   else (
-    let temp = find_avaiable ctxt.tape 0 in
+    let temp = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
     let dist = temp - !(ctxt.ptr) in
     let eq = gen_eq_as n dist in
     let dir = ref 1 in
     let f i x =
       if i mod 2 == 0 then Inc *@ x
       else (
-        let loop = Loop (gen_mul_block dist x dir) in
-        let move = dir := Int.neg !dir; move_dist (dist * !dir) in
+        let loop = Loop (gen_mul_block ctxt dist x dir) in
+        let move = dir := Int.neg !dir; move_dist ctxt (dist * !dir) in
         dir := Int.neg !dir; loop :: move
       )
     in
     release_loc ctxt.tape temp; List.mapi f eq |> List.flatten
   )
-and gen_mul_block dx n dir =
-  let m1 = move_dist (dx * !dir) in
+and gen_mul_block ctxt dx n dir =
+  let m1 = move_dist ctxt (dx * !dir) in
   let inc = Inc *@ n in
-  let m2 = dir := Int.neg !dir; move_dist (dx * !dir) in
+  let m2 = dir := Int.neg !dir; move_dist ctxt (dx * !dir) in
   m1 @ inc @ m2 @ [Dec]
 
 
@@ -112,8 +112,9 @@ let rec gen_block (ctxt:ctxt) (exp:exp) : block =
   (* | Assn (e1, e2) ->  *)
   | Decl (id, e) -> (* TODO: add non-initalized vars *)
     let new_ptr = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
+    let move = (move_to ctxt new_ptr) in
     let init = gen_block ctxt e in
-    add ctxt id new_ptr (List.length init); (move_to ctxt new_ptr) @ init
+    add ctxt id new_ptr (List.length init);  move @ init
   | _ -> []
 
 

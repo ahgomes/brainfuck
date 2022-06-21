@@ -37,5 +37,5 @@ exp:
   | e1=exp op=bop e2=exp { Bop (op, e1, e2) }
   | ISZERO e=exp { IsZero e }
   | e1=exp EQ e2=exp { Assn (e1, e2) }
-  | LET id=ID EQ e=exp { Decl (id, e) }
+  | LET id=IDENT EQ e=exp { Decl (id, e) }
   | LPAREN e=exp RPAREN { e }

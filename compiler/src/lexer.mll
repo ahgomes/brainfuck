@@ -17,8 +17,7 @@
 
   let reserved_words =
     [ ("zero?", ISZERO);
-      ("let", LET);
-      ("print", PRINT); ]
+      ("let", LET); ]
 
   let symbols =
     [ ( "+", PLUS);
@@ -33,7 +32,7 @@
   ;; List.iter (fun (str, tok) -> Hashtbl.add sym_table str tok) res_sym
 
   let create_token str =
-    try (Hashtbl.find symbol_table str)
+    try (Hashtbl.find sym_table str)
     with _ -> IDENT str
 
   let string_buf = Buffer.create 128
@@ -70,5 +69,5 @@ and escaped = parse
   | ['0'-'9']['0'-'9']['0'-'9'] as d
     { let x = (int_of_string d) in
       if x < 256 then Char.chr x
-      else raise illegal_esc d }
+      else raise (illegal_esc d) }
   | _ as c { illegal_esc (Char.escaped c) }
