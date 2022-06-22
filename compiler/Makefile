@@ -1,4 +1,4 @@
-.PHONY: main.native test clean
+.PHONY: main.native test interp clean
 
 all: main.native
 
@@ -7,6 +7,9 @@ main.native:
 
 test: main.native
 	./main.native test/test.code test/test.bf
+
+interp: main.native test
+	ocaml ../interp.ml test/test.bf
 
 clean:
 	ocamlbuild -clean

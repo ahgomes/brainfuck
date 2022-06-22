@@ -17,15 +17,16 @@
 
   let reserved_words =
     [ ("zero?", ISZERO);
-      ("let", LET); ]
+      ("let", LET);
+      ("print", PRINT); ]
 
   let symbols =
-    [ ( "+", PLUS);
-      ( "-", MINUS);
-      ( "*", MULT);
-      ( "=", EQ);
-      ( "(", LPAREN);
-      ( ")", RPAREN); ]
+    [ ("+", PLUS);
+      ("-", MINUS);
+      ("*", MULT);
+      ("=", EQ);
+      ("(", LPAREN);
+      (")", RPAREN); ]
 
   let res_sym =  reserved_words @ symbols
   let sym_table = Hashtbl.create 1024
