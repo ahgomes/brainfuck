@@ -60,6 +60,7 @@ let add_int n : block = if n > 0 then Inc *@ n else Dec *@ (abs n)
 let div_mod n d : int * int = (n / d, n mod d)
 
 let bf_print b = b @ [Out]
+let bf_clear = [Loop([Dec])]
 
 let min_tup t1 t2 = if fst t1 < fst t2 then t1 else t2
 
@@ -126,7 +127,7 @@ let rec gen_pstr ctxt s : block =
   let chars = List.init (String.length s) (String.get s) in
   let ords = List.map Char.code chars in
   let prev = bf_print @@ gen_num ctxt (List.hd ords) in
-  prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords)
+  prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords) @ bf_clear
 and gen_pstr_as ctxt prev rest : block =
   match rest with
   | [] -> []

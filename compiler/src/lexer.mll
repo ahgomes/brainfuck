@@ -54,7 +54,7 @@ rule token = parse
   | newline { newline lexbuf; token lexbuf }
   | (character | '_') (digit | character | '_')* as s { create_token s }
   | digit+ as d { INT (int_of_string d) }
-  | '"' { string lexbuf }
+  | '"' { reset_str (); string lexbuf }
   | '+' | '-' | '*' | '=' | '(' | ')' as c { create_token (Char.escaped c) }
   | _ as c { unexpected_char c }
 and string = parse

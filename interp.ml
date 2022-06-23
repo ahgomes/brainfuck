@@ -14,6 +14,7 @@ let rec match_right i left =
   | _ -> match_right (i+1) left
 
 let rec interp i =
+  if i >= String.length code then () else (
   let cmd = code.[i] in
   match cmd with
     | '>' -> ptr := !ptr + 1; interp (i + 1)
@@ -27,6 +28,6 @@ let rec interp i =
              else (Stack.push i loop_stack; interp (i + 1))
     | ']' -> interp (Stack.pop loop_stack)
     | '?' -> print_int mem.(!ptr); interp (i + 1) (* for testing *)
-    | _ -> if (i+2) < (String.length code) then interp (i + 1) else ()
+    | _ -> if (i+2) < (String.length code) then interp (i + 1) else () )
 
 ;; interp 0
