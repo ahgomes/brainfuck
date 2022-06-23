@@ -113,12 +113,14 @@ and gen_mul_block ctxt dx n dir =
 let rec gen_str ctxt s : block =
   let chars = List.init (String.length s) (String.get s) in
   let ords = List.map Char.code chars in
-  let f o =
-    let new_ptr = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
-    let move = (move_to ctxt new_ptr) in
-    move @ (gen_num ctxt o)
+  let f i o =
+    if i > 0 then (
+      let new_ptr = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
+      let move = (move_to ctxt new_ptr) in
+      move @ (gen_num ctxt o))
+    else gen_num ctxt o
   in
-  List.map f ords |> List.flatten
+  List.mapi f ords |> List.flatten
 
 let rec gen_pstr ctxt s : block =
   let chars = List.init (String.length s) (String.get s) in
@@ -132,16 +134,26 @@ and gen_pstr_as ctxt prev rest : block =
     let result = gen_num ctxt (hd - prev) in
     (bf_print result) @ (gen_pstr_as ctxt hd tl)
 
-let rec gen_exp (ctxt:ctxt) (exp:exp) : block =
+let rec gen_print_id ctxt len loc : int * block =
+  match len with
+  | 1 -> (1, bf_print loc)
+  | x when x > 1 ->
+    let move = move_dist ctxt 1 in
+    let prev = snd (gen_print_id ctxt (len - 1) loc) in
+    (len, prev @ bf_print move)
+  | _ -> failwith "Invalid pointer location."
+
+
+let rec gen_exp (ctxt:ctxt) (exp:exp) : int * block =
   match exp with
-  | Num i -> gen_num ctxt i
-  | Str s -> gen_str ctxt s
-  | PStr s -> gen_pstr ctxt s
-  | Id id -> lookup ctxt.layout id |> fst |> move_to ctxt
-  | Bop (bop, e1, e2) -> []
+  | Num i -> (1, gen_num ctxt i)
+  | Str s -> (String.length s, gen_str ctxt s)
+  | PStr s -> (1, gen_pstr ctxt s)
+  | Id id -> let (loc, len) = lookup ctxt.layout id in (len, move_to ctxt loc)
+  | Bop (bop, e1, e2) -> (0, [])
   (*   | IsZero e -> [] TODO: need add if else statments *)
   | Uop (Neg, Num i) -> gen_exp ctxt (Num (-i))
-  | Uop (Neg, Id id) -> []
+  | Uop (Neg, Id id) -> (0, [])
   | _ -> failwith "Invalid expression."
 
 let rec gen_block (ctxt:ctxt) (stmt:stmt) : block =
@@ -152,12 +164,20 @@ let rec gen_block (ctxt:ctxt) (stmt:stmt) : block =
     let new_ptr = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
     let move = (move_to ctxt new_ptr) in
     let init = gen_exp ctxt e in
-    add ctxt id new_ptr (List.length init); move @ init
-  | Print (Str s) ->
+    add ctxt id new_ptr (fst init); move @ (snd init)
+  | Print e ->
     let temp = take_loc ctxt.tape @@ find_avaiable ctxt.tape 0 in
     let move = (move_to ctxt temp) in
-    let pstr = gen_exp ctxt (PStr s) in
-    release_loc ctxt.tape temp; move @ pstr
+    let pstr = begin match e with
+      | Str s -> gen_exp ctxt (PStr s)
+      | Num i -> gen_exp ctxt (PStr (string_of_int i))
+      | Uop (Neg, Num i) -> gen_exp ctxt (PStr (string_of_int (-i)))
+      | Id id ->
+        let (len, loc) = gen_exp ctxt (Id id) in
+        gen_print_id ctxt len loc
+      | _ -> failwith "Invalid print argument."
+    end in
+    release_loc ctxt.tape temp; move @ (snd pstr)
   | _ -> failwith "Invalid statment."
 
 let gen_prog (prog:Ast.prog) : string =
