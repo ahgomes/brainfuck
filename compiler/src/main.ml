@@ -2,7 +2,7 @@ open Generator
 
 let format s =
   let add_nl i ch =
-    let end_ch = if (i + 1) mod 80 = 0 then "\n" else "" in
+    let end_ch = if (i + 1) mod 50 = 0 then "\n" else "" in
     (String.make 1 ch) ^ end_ch
   in
   List.init (String.length s) (String.get s)

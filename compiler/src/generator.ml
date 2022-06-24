@@ -31,6 +31,8 @@ let release_loc tape i = Array.set tape i false
 let take_available tape : int =
   take_loc tape @@ find_avaiable tape 0
 
+let release_mult tape l = List.iter (release_loc tape) l
+
 (* printing *)
 let layout_str layout =
   let f x y =
@@ -184,7 +186,6 @@ and gen_pstr_as ctxt prev rest : block =
 
 (* compile expressions *)
 let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
-  let _ = print_ctxt ctxt in
   match exp with
   | Int i -> (TInt, gen_num ctxt i)
   | Str s -> (TString, [])
@@ -220,7 +221,6 @@ let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
 
 (* compile statments *)
 let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
-  let _ = print_ctxt ctxt in
   match stmt with
   (* | Assn (e1, e2) -> *)
   (* | Decl (id, e) -> (* TODO: add non-initalized vars *)
@@ -243,26 +243,31 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
     release_loc ctxt.tape temp; mv_t @ t_val @ block @ p_block @ Bf.out
   | If (e, s1, s2) ->
     let temp1, t_val1 = gen_temp ctxt 0 in
-    let step1 = move_to ctxt temp1 @ t_val1 in
+    let mt1 = move_to ctxt temp1 @ t_val1 in
     let temp2, t_val2 = gen_temp ctxt 0 in
-    let step2 = move_to ctxt temp2 @ t_val2 in
-    let ty, block = gen_exp ctxt e in
+    let mt2 = move_to ctxt temp2 @ t_val2 in
+    let temp3, t_val3 = gen_temp ctxt 0 in
+    let ty, block = move_to ctxt temp3 @ t_val3; gen_exp ctxt e in
     if ty <> TBool then failwith "if requires boolean expression"
     else (
       let curr = !(ctxt.ptr) in
       let mv_t1 = move_to ctxt temp1 in
       let mv_t2 = move_to ctxt temp2 in
       let mv_c = move_to ctxt curr in
+      let mv_t2_t1 = move_to ctxt temp2; move_to ctxt temp1 in
+      let mv_c_t1 = move_to ctxt curr; move_to ctxt temp1 in
+      let mv_t1_c = move_to ctxt temp1; move_to ctxt curr in
       let l1 = Bf.loop (mv_t1 @ Bf.inc @ mv_t2 @ Bf.inc @ mv_c @ Bf.dec) in
-      let l2 = Bf.loop ((move_to ctxt curr) @ Bf.inc @ mv_t1 @ Bf.dec) in
+      let l2 = Bf.loop (mv_t1_c @ Bf.inc @ mv_t1 @ Bf.dec) in
       let f s = List.map (gen_block ctxt) s |> List.flatten in
       let b1 = f s1 in
       let b2 = f s2 in
-      release_loc ctxt.tape temp1; release_loc ctxt.tape temp2;
-      step1 @ step2 @ mv_c @ block @ l1 @ mv_t1 @ l2 @ Bf.inc @ mv_t2
-        @ Bf.loop (b1 @ (move_to ctxt temp1) @ Bf.dec @ mv_t2 @ Bf.zero)
-        @ (move_to ctxt temp1) @ Bf.loop (b2 @ (move_to ctxt temp1) @ Bf.inc)
-        @ (move_to ctxt curr)
+      let setup = mt1 @ mt2 @ mv_c @ block in
+      let ifcheck = l1 @ mv_t1 @ l2 @ Bf.inc @ mv_t2 in
+      let ifblock = Bf.loop (b1 @ mv_t2_t1 @ Bf.dec @ mv_t2 @ Bf.zero) in
+      let elseblock = mv_t2_t1 @ Bf.loop (mv_t1_c @ b2 @ mv_c_t1 @ Bf.dec) in
+      release_mult ctxt.tape [temp1; temp2; temp3];
+      setup @ ifcheck @ ifblock @ elseblock
     )
   | _ -> failwith "not implemented."
 
