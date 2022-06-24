@@ -160,23 +160,28 @@ let gen_temp ctxt i =
 
 (* strings *)
 let rec gen_str ctxt s : block =
-  let chars = List.init (String.length s) (String.get s) in
-  let ords = List.map Char.code chars in
-  let f i o =
-    if i > 0 then (
-      let new_ptr = take_available ctxt.tape in
-      let move = (move_to ctxt new_ptr) in
-      move @ (gen_num ctxt o))
-    else gen_num ctxt o
-  in
-  List.mapi f ords |> List.flatten
+  if String.length s = 0 then []
+  else (
+    let chars = List.init (String.length s) (String.get s) in
+    let ords = List.map Char.code chars in
+    let f i o =
+      if i > 0 then (
+        let new_ptr = take_available ctxt.tape in
+        let move = (move_to ctxt new_ptr) in
+        move @ (gen_num ctxt o))
+      else gen_num ctxt o
+    in
+    List.mapi f ords |> List.flatten
+  )
 
 (* print strings *)
 let rec gen_pstr ctxt s : block =
-  let chars = List.init (String.length s) (String.get s) in
-  let ords = List.map Char.code chars in
-  let prev = gen_num ctxt (List.hd ords) @ Bf.out in
-  prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords) @ Bf.zero
+  if String.length s = 0 then [] else (
+    let chars = List.init (String.length s) (String.get s) in
+    let ords = List.map Char.code chars in
+    let prev = gen_num ctxt (List.hd ords) @ Bf.out in
+    prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords) @ Bf.zero
+  )
 and gen_pstr_as ctxt prev rest : block =
   match rest with
   | [] -> []
@@ -237,10 +242,13 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
       | _ -> gen_exp ctxt e
     end in
     let p_block = begin match ty with
-      | TBool -> gen_num ctxt 48
-      | _ -> []
+      | TBool ->
+        let ifs = If (e, [Print(Str "true")], [Print(Str "false")]) in
+        move_to ctxt temp; gen_block ctxt ifs
+      | _ -> block
     end in
-    release_loc ctxt.tape temp; mv_t @ t_val @ block @ p_block @ Bf.out
+    release_loc ctxt.tape temp; move_to ctxt temp;
+    mv_t @ t_val @ p_block @ Bf.out
   | If (e, s1, s2) ->
     let temp1, t_val1 = gen_temp ctxt 0 in
     let mt1 = move_to ctxt temp1 @ t_val1 in
