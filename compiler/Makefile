@@ -1,4 +1,5 @@
-.PHONY: main.native test interp clean
+.PHONY: test interp clean
+.SILENT: main.native test interp
 
 all: main.native
 

@@ -29,7 +29,7 @@ let take_loc tape i : int = Array.set tape i true; i
 let release_loc tape i = Array.set tape i false
 
 let take_available tape : int =
-  take_loc tape @@ find_avaiable tape 1
+  take_loc tape @@ find_avaiable tape 0
 
 (* printing *)
 let layout_str layout =
@@ -173,26 +173,23 @@ let rec gen_str ctxt s : block =
 let rec gen_pstr ctxt s : block =
   let chars = List.init (String.length s) (String.get s) in
   let ords = List.map Char.code chars in
-  let prev = bf_print @@ gen_num ctxt (List.hd ords) in
-  prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords) @ bf_zero
+  let prev = gen_num ctxt (List.hd ords) @ Bf.out in
+  prev @ gen_pstr_as ctxt (List.hd ords) (List.tl ords) @ Bf.zero
 and gen_pstr_as ctxt prev rest : block =
   match rest with
   | [] -> []
   | hd::tl ->
     let result = gen_num ctxt (hd - prev) in
-    (bf_print result) @ (gen_pstr_as ctxt hd tl)
+    result @ Bf.out @ (gen_pstr_as ctxt hd tl)
 
 (* compile expressions *)
 let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
   let _ = print_ctxt ctxt in
   match exp with
-  (* | Str of string
-  | PStr of string
-  | Uop of unop * exp *)
   | Int i -> (TInt, gen_num ctxt i)
-  | Id id ->
-    let ptr, ty = lookup ctxt.layout id in
-    (ty, move_to ctxt ptr)
+  | Str s -> (TString, [])
+  | PStr p -> (TString, gen_pstr ctxt p)
+  | Id id -> let ptr, ty = lookup ctxt.layout id in (ty, move_to ctxt ptr)
   | Bop (bop, e1, e2) ->
     let in1, in2, _ = typ_of_binop bop in
     let ty1 = typ_of_exp ctxt e1 in
@@ -204,16 +201,21 @@ let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
       | _ -> failwith "not implemented."
       end
     )
-  | IsZero e ->
-    let _, block = gen_exp ctxt e in
-    let curr = !(ctxt.ptr) in
-    let temp, t_val = gen_temp ctxt 0 in
-    let mv_t = move_to ctxt temp in
-    let mv_c = move_to ctxt curr in
-    let l1 = Bf.loop (mv_t @ Bf.inc @ mv_c @ Bf.zero) in
-    let l2 = Bf.loop (mv_c @ Bf.dec @ mv_t @ Bf.dec) in
-    let result = block @ mv_t @ t_val @ mv_c @ l1 @ Bf.inc @ mv_t @ l2 @ mv_c in
-    release_loc ctxt.tape temp; (TBool, result)
+  (* | Uop of unop * exp *)
+  | IsZero e -> (* FIXME: overwrites original value problem if id *)
+    let ty, block = gen_exp ctxt e in
+    if ty <> TInt then failwith "zero? only accepts integer values"
+    else (
+      let curr = !(ctxt.ptr) in
+      let temp, t_val = gen_temp ctxt 0 in
+      let mv_t = move_to ctxt temp in
+      let mv_c = move_to ctxt curr in
+      let l1 = Bf.loop (mv_t @ Bf.inc @ mv_c @ Bf.zero) in
+      let l2 = Bf.loop (mv_c @ Bf.dec @ mv_t @ Bf.dec) in
+      let result =
+        block @ mv_t @ t_val @ mv_c @ l1 @ Bf.inc @ mv_t @ l2 @ mv_c
+      in
+      release_loc ctxt.tape temp; (TBool, result) )
   | _ -> failwith "not implemented."
 
 (* compile statments *)
@@ -221,13 +223,25 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
   let _ = print_ctxt ctxt in
   match stmt with
   (* | Assn (e1, e2) -> *)
-  | Decl (id, e) -> (* TODO: add non-initalized vars *)
+  (* | Decl (id, e) -> (* TODO: add non-initalized vars *)
     let new_ptr = take_available ctxt.tape in
     let move = move_to ctxt new_ptr in
     let ty, block = gen_exp ctxt e in
-    add ctxt id new_ptr ty; move @ block
+    add ctxt id new_ptr ty; move @ block *)
   (* | If of exp * stmt list * stmt list *)
-  | Print e -> let ty, block = gen_exp ctxt e in block @ Bf.out
+  | Print e ->
+    let temp, t_val = gen_temp ctxt 0 in
+    let mv_t = move_to ctxt temp in
+    let ty, block = begin match e with
+      | Int i -> gen_exp ctxt (PStr (string_of_int i))
+      | Str s -> gen_exp ctxt (PStr s)
+      | _ -> gen_exp ctxt e
+    end in
+    let p_block = begin match ty with
+      | TBool -> gen_num ctxt 48
+      | _ -> []
+    end in
+    release_loc ctxt.tape temp; t_val @ mv_t @ block @ p_block @ Bf.out
   | _ -> failwith "not implemented."
 
 let gen_prog (prog:Ast.prog) : string =
