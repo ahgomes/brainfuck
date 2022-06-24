@@ -34,7 +34,7 @@ prog:
   | MULT { Mul }
 
 exp:
-  | i=INT { Num i }
+  | i=INT { Int i }
   | s=STRING { Str s }
   | id=IDENT { Id id }
   | e1=exp op=bop e2=exp { Bop (op, e1, e2) }

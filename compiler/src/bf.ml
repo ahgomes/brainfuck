@@ -12,6 +12,12 @@ type block = cmd list
 
 type prog = block list
 
+let out = [Out]
+let zero = [Loop ([Dec])]
+let loop block = [Loop (block)]
+let inc = [Inc]
+let dec = [Dec]
+
 let rec string_of_cmd : cmd -> string = function
   | Right -> ">"
   | Left -> "<"

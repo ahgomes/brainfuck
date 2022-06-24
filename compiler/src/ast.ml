@@ -1,6 +1,11 @@
 
 type id = string
 
+type ty =
+| TBool
+| TInt
+| TString
+
 type unop =
 | Neg
 
@@ -10,7 +15,7 @@ type binop =
 | Mul
 
 type exp =
-| Num of int
+| Int of int
 | Str of string
 | PStr of string
 | Id of id
@@ -22,5 +27,6 @@ type stmt =
 | Assn of exp * exp
 | Decl of id * exp
 | Print of exp
+| If of exp * stmt list * stmt list
 
 type prog = stmt list
