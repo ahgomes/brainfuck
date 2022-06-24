@@ -6,11 +6,13 @@ open Ast
 %token <string> STRING
 %token <string> IDENT
 %token LPAREN RPAREN
+%token LBRACE RBRACE
 %token PLUS MINUS MULT
 %token EQ
 %token LET
 %token ISZERO
 %token PRINT
+%token IF ELSE
 %token EOF
 
 %left PLUS MINUS
@@ -46,3 +48,15 @@ stmt:
   | e1=exp EQ e2=exp { Assn (e1, e2) }
   | LET id=IDENT EQ e=exp { Decl (id, e) }
   | PRINT e=exp { Print e }
+  | ifs=if_stmt { ifs }
+
+block:
+  | LBRACE stmts=list(stmt) RBRACE { stmts }
+
+if_stmt:
+  | IF LPAREN e=exp RPAREN b1=block b2=else_stmt { If(e,b1,b2) }
+
+else_stmt:
+  | (* empty *)       { [] }
+  | ELSE b=block      { b }
+  | ELSE ifs=if_stmt  { [ ifs ] }

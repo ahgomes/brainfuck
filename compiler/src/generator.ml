@@ -228,7 +228,6 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
     let move = move_to ctxt new_ptr in
     let ty, block = gen_exp ctxt e in
     add ctxt id new_ptr ty; move @ block *)
-  (* | If of exp * stmt list * stmt list *)
   | Print e ->
     let temp, t_val = gen_temp ctxt 0 in
     let mv_t = move_to ctxt temp in
@@ -241,9 +240,32 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
       | TBool -> gen_num ctxt 48
       | _ -> []
     end in
-    release_loc ctxt.tape temp; t_val @ mv_t @ block @ p_block @ Bf.out
+    release_loc ctxt.tape temp; mv_t @ t_val @ block @ p_block @ Bf.out
+  | If (e, s1, s2) ->
+    let temp1, t_val1 = gen_temp ctxt 0 in
+    let step1 = move_to ctxt temp1 @ t_val1 in
+    let temp2, t_val2 = gen_temp ctxt 0 in
+    let step2 = move_to ctxt temp2 @ t_val2 in
+    let ty, block = gen_exp ctxt e in
+    if ty <> TBool then failwith "if requires boolean expression"
+    else (
+      let curr = !(ctxt.ptr) in
+      let mv_t1 = move_to ctxt temp1 in
+      let mv_t2 = move_to ctxt temp2 in
+      let mv_c = move_to ctxt curr in
+      let l1 = Bf.loop (mv_t1 @ Bf.inc @ mv_t2 @ Bf.inc @ mv_c @ Bf.dec) in
+      let l2 = Bf.loop ((move_to ctxt curr) @ Bf.inc @ mv_t1 @ Bf.dec) in
+      let f s = List.map (gen_block ctxt) s |> List.flatten in
+      let b1 = f s1 in
+      let b2 = f s2 in
+      release_loc ctxt.tape temp1; release_loc ctxt.tape temp2;
+      step1 @ step2 @ mv_c @ block @ l1 @ mv_t1 @ l2 @ Bf.inc @ mv_t2
+        @ Bf.loop (b1 @ (move_to ctxt temp1) @ Bf.dec @ mv_t2 @ Bf.zero)
+        @ (move_to ctxt temp1) @ Bf.loop (b2 @ (move_to ctxt temp1) @ Bf.inc)
+        @ (move_to ctxt curr)
+    )
   | _ -> failwith "not implemented."
 
 let gen_prog (prog:Ast.prog) : string =
   let ctxt = { ptr = ref 0; layout = []; tape = Array.make tape_size false } in
-  Bf.string_of_prog @@ List.map (fun x -> gen_block ctxt x) prog
+  Bf.string_of_prog @@ List.map (gen_block ctxt) prog

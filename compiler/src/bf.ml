@@ -32,4 +32,3 @@ and string_of_block block =
 let string_of_prog prog =
   List.map string_of_block prog
   |> String.concat ""
-  |> fun x -> x

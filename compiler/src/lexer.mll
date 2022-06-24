@@ -18,7 +18,9 @@
   let reserved_words =
     [ ("zero?", ISZERO);
       ("let", LET);
-      ("print", PRINT); ]
+      ("print", PRINT);
+      ("if", IF);
+      ("else", ELSE); ]
 
   let symbols =
     [ ("+", PLUS);
@@ -26,9 +28,11 @@
       ("*", MULT);
       ("=", EQ);
       ("(", LPAREN);
-      (")", RPAREN); ]
+      (")", RPAREN);
+      ("{", LBRACE);
+      ("}", RBRACE); ]
 
-  let res_sym =  reserved_words @ symbols
+  let res_sym = reserved_words @ symbols
   let sym_table = Hashtbl.create 1024
   ;; List.iter (fun (str, tok) -> Hashtbl.add sym_table str tok) res_sym
 
@@ -55,7 +59,8 @@ rule token = parse
   | (character | '_') (digit | character | '_')* ('?')? as s { create_token s }
   | digit+ as d { INT (int_of_string d) }
   | '"' { reset_str (); string lexbuf }
-  | '+' | '-' | '*' | '=' | '(' | ')' as c { create_token (Char.escaped c) }
+  | '+' | '-' | '*' | '=' | '(' | ')' | '{' | '}' as c
+    { create_token (Char.escaped c) }
   | _ as c { unexpected_char c }
 and string = parse
   | '"' { STRING (get_str ()) }
