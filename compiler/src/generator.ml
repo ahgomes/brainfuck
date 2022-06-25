@@ -166,12 +166,14 @@ let rec gen_str ctxt s : block =
     let ords = List.map Char.code chars in
     let f i o =
       if i > 0 then (
-        let new_ptr = take_available ctxt.tape in
-        let move = (move_to ctxt new_ptr) in
-        move @ (gen_num ctxt o))
+        let temp, t_val = gen_temp ctxt 0 in
+        let move = (move_to ctxt temp) in
+        move @ t_val @ (gen_num ctxt o))
       else gen_num ctxt o
     in
-    List.mapi f ords |> List.flatten
+    let str = List.mapi f ords |> List.flatten in
+    let e_ptr, end = gen_temp ctxt 0 in
+    str @ (move_to ctxt e_ptr) @ end
   )
 
 (* print strings *)
@@ -193,7 +195,7 @@ and gen_pstr_as ctxt prev rest : block =
 let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
   match exp with
   | Int i -> (TInt, gen_num ctxt i)
-  | Str s -> (TString, [])
+  | Str s -> (TString, gen_str ctxt s)
   | PStr p -> (TString, gen_pstr ctxt p)
   | Id id -> let ptr, ty = lookup ctxt.layout id in (ty, move_to ctxt ptr)
   | Bop (bop, e1, e2) ->
