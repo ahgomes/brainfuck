@@ -138,13 +138,19 @@ and eq_len e dx =
 let rec gen_num ctxt n : block =
   if n < 15 && n > -15 then add_int n
   else (
+    let curr = !(ctxt.ptr) in
     let temp = take_available ctxt.tape in
-    let dist = temp - !(ctxt.ptr) in
+    let clear =
+      (move_to ctxt temp) @ Bf.zero
+        @ (move_to ctxt temp; move_to ctxt curr)
+    in
+    let _ = move_to ctxt curr in
+    let dist = temp - curr in
     let eq = get_eq n dist in
     let dir = ref 1 in
     let init_move = if (List.length eq) mod 4 == 3
       then (dir := Int.neg !dir; move_to ctxt temp)
-      else (move_to ctxt !(ctxt.ptr))
+      else (move_to ctxt curr)
     in
     let f i x =
       if i mod 2 == 0 then add_int x
@@ -155,7 +161,7 @@ let rec gen_num ctxt n : block =
       )
     in
     let r =  List.mapi f eq |> List.flatten in
-    release_loc ctxt.tape temp; init_move @ r
+    release_loc ctxt.tape temp; clear @ init_move @ r
   )
 and gen_mul_block ctxt dx n dir =
   let m1 = move_dist ctxt (dx * !dir) in
