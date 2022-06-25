@@ -5,6 +5,7 @@ type ty =
 | TBool
 | TInt
 | TString
+| TPrint
 
 type unop =
 | Neg

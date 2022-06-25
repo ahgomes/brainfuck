@@ -41,6 +41,7 @@ let layout_str layout =
       | TInt -> "int"
       | TString -> "string"
       | TBool -> "bool"
+      | TPrint -> "print string"
     in
     Printf.sprintf "%s{%s: (%d, <%s>)}; " x id l (ty t)
   in List.fold_left f "" layout
@@ -75,7 +76,8 @@ let typ_of_unop : Ast.unop -> Ast.ty * Ast.ty = function
 let typ_of_exp ctxt exp : Ast.ty =
   match exp with
   | Int _ -> TInt
-  | Str _ | PStr _ -> TString
+  | Str _ -> TString
+  | PStr _ -> TPrint
   | Id id -> snd (lookup ctxt.layout id)
   | Uop (uop, _) -> snd (typ_of_unop uop)
   | Bop (bop, _, _) -> thdt (typ_of_binop bop)
@@ -172,8 +174,8 @@ let rec gen_str ctxt s : block =
       else gen_num ctxt o
     in
     let str = List.mapi f ords |> List.flatten in
-    let e_ptr, end = gen_temp ctxt 0 in
-    str @ (move_to ctxt e_ptr) @ end
+    let end_ptr, end_block = gen_temp ctxt 0 in
+    str @ (move_to ctxt end_ptr) @ end_block
   )
 
 (* print strings *)
@@ -196,7 +198,7 @@ let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
   match exp with
   | Int i -> (TInt, gen_num ctxt i)
   | Str s -> (TString, gen_str ctxt s)
-  | PStr p -> (TString, gen_pstr ctxt p)
+  | PStr p -> (TPrint, gen_pstr ctxt p)
   | Id id -> let ptr, ty = lookup ctxt.layout id in (ty, move_to ctxt ptr)
   | Bop (bop, e1, e2) ->
     let in1, in2, _ = typ_of_binop bop in
@@ -230,11 +232,11 @@ let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
 let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
   match stmt with
   (* | Assn (e1, e2) -> *)
-  (* | Decl (id, e) -> (* TODO: add non-initalized vars *)
+  | Decl (id, e) -> (* TODO: add non-initalized vars *)
     let new_ptr = take_available ctxt.tape in
     let move = move_to ctxt new_ptr in
     let ty, block = gen_exp ctxt e in
-    add ctxt id new_ptr ty; move @ block *)
+    add ctxt id new_ptr ty; move @ block
   | Print e ->
     let temp, t_val = gen_temp ctxt 0 in
     let mv_t = move_to ctxt temp in
@@ -246,11 +248,12 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
     let p_block = begin match ty with
       | TBool ->
         let ifs = If (e, [Print(Str "true")], [Print(Str "false")]) in
-        move_to ctxt temp; gen_block ctxt ifs
-      | _ -> block
+        move_to ctxt temp; (gen_block ctxt ifs) @ Bf.out
+      | TString -> block @ Bf.loop (Bf.out @ (move_dist ctxt 1))
+      | _ -> block @ Bf.out
     end in
     release_loc ctxt.tape temp; move_to ctxt temp;
-    mv_t @ t_val @ p_block @ Bf.out
+    mv_t @ t_val @ p_block
   | If (e, s1, s2) ->
     let temp1, t_val1 = gen_temp ctxt 0 in
     let mt1 = move_to ctxt temp1 @ t_val1 in
