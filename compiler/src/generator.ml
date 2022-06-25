@@ -25,13 +25,22 @@ let rec find_avaiable tape i : int =
     else i
   with _ -> raise (Compile_Error ("Memory overflow!"))
 
+let rec find_group tape len start : int list =
+  let gp = List.init len (fun i -> find_avaiable tape (start + i)) in
+  let f a b = if b-1 = a then b else -1 in
+  let con = List.fold_left f (List.hd gp) (List.tl gp) in
+  if con = -1 then find_group tape len (start + 1) else gp
+
 let take_loc tape i : int = Array.set tape i true; i
 let release_loc tape i = Array.set tape i false
 
 let take_available tape : int =
   take_loc tape @@ find_avaiable tape 0
 
-let release_mult tape l = List.iter (release_loc tape) l
+let take_group tape len : int list =
+  List.map (take_loc tape) @@ find_group tape len 0
+
+let release_group tape l = List.iter (release_loc tape) l
 
 (* printing *)
 let layout_str layout =
@@ -160,6 +169,10 @@ let gen_temp ctxt i =
   let add = gen_num ctxt i in
   (ptr, Bf.zero @ add)
 
+let gen_temp_group ctxt len =
+  let gp = take_group ctxt.tape len in
+  List.map (fun p -> (p, Bf.zero)) gp
+
 (* strings *)
 let rec gen_str ctxt s : block =
   if String.length s = 0 then []
@@ -192,6 +205,49 @@ and gen_pstr_as ctxt prev rest : block =
   | hd::tl ->
     let result = gen_num ctxt (hd - prev) in
     result @ Bf.out @ (gen_pstr_as ctxt hd tl)
+
+(* print int *)
+let gen_print_int ctxt : block =
+  let curr = !(ctxt.ptr) in
+  let temps = (curr, []) :: (gen_temp_group ctxt 9) in
+  let g a b = a @ (move_to ctxt (fst b)) @ snd b in
+  let tidx = List.map fst temps in
+  let get i = List.nth tidx i in
+  let mv f t = move_to ctxt (get f); move_to ctxt (get t) in
+  let mvd d = if d >= 0 then (mv 1 (d+1)) else (mv (abs (d-1)) 1) in
+  let clear = List.fold_left g [] temps @ (mv 9 0) in
+  let ll =
+    (mvd 1) @ Bf.dec
+    @ Bf.loop ((mvd 1) @ Bf.inc @ (mvd 2)) @ (mvd 1)
+    @ Bf.loop (Bf.inc @ Bf.loop (Bf.dec @ (mvd (-1)) @ Bf.inc @ (mvd 1))
+      @ (mvd 1) @ Bf.inc @ (mvd 2))
+    @ (mvd (-5))
+  in
+  let l1 = Bf.loop (Bf.dec @ (mv 0 1) @ Bf.inc @ ll @ (mv 1 0)) in
+  let l2 = Bf.loop (Bf.dec @ ll) in
+  let divmod =
+    (mv 0 2) @ (add_int 10) @ (mv 2 0) @ l1 @ (mv 0 2) @ Bf.zero
+      @ (mv 2 5) @ (add_int 10) @ (mv 5 4) @ l2 @ (mv 4 5) @ Bf.zero
+  in
+  let n48 i =
+    (add_int 6) @ Bf.loop (Bf.dec @ (mvd (-i)) @ (add_int 8) @ (mvd i))
+  in
+  let l3 =
+    Bf.loop ((mvd 1) @ (n48 1) @ (mvd (-1)) @ Bf.out @ (mvd (-2)) @ Bf.inc
+      @ (mvd 1) @ Bf.inc @ (mvd 1) @ Bf.zero )
+  in
+  let l4 =
+    Bf.loop ((mvd (-1)) @ Bf.loop (Bf.dec @ (mvd 1) @ Bf.dec @ (mvd (-1)))
+      @ (n48 (-1)) @ (mvd 1) @ Bf.out @ Bf.zero)
+  in
+  let print =
+    (mv 5 7) @ l3 @ (mv 7 6) @ l4 @ (mv 6 4) @ (n48 1) @ (mv 4 3)
+      @ Bf.out @ Bf.zero
+  in
+  let l5 = Bf.loop (Bf.dec @ (mv 1 0) @ Bf.inc @ (mv 0 1)) in
+  let return = (mv 3 1) @ l5 @ (mv 1 0) in
+  release_group ctxt.tape (List.tl tidx);
+  clear @ divmod @ print @ return
 
 (* compile expressions *)
 let rec gen_exp (ctxt:ctxt) (exp:exp) : Ast.ty * Bf.block =
@@ -249,6 +305,7 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
       | TBool ->
         let ifs = If (e, [Print(Str "true")], [Print(Str "false")]) in
         move_to ctxt temp; (gen_block ctxt ifs) @ Bf.out
+      | TInt -> block @ gen_print_int ctxt
       | TString -> block @ Bf.loop (Bf.out @ (move_dist ctxt 1))
       | _ -> block @ Bf.out
     end in
@@ -279,7 +336,7 @@ let rec gen_block (ctxt:ctxt) (stmt:Ast.stmt) : Bf.block =
       let ifcheck = l1 @ mv_t1 @ l2 @ Bf.inc @ mv_t2 in
       let ifblock = Bf.loop (b1 @ mv_t2_t1 @ Bf.dec @ mv_t2 @ Bf.zero) in
       let elseblock = mv_t2_t1 @ Bf.loop (mv_t1_c @ b2 @ mv_c_t1 @ Bf.dec) in
-      release_mult ctxt.tape [temp1; temp2; temp3];
+      release_group ctxt.tape [temp1; temp2; temp3];
       setup @ ifcheck @ ifblock @ elseblock
     )
   | _ -> failwith "not implemented."
