@@ -1,1 +1,5 @@
-to compile a simple psuedocode langauge into brainfuck.
+to compile a simple pseudocode language into brainfuck.
+
+sources:
+https://esolangs.org/wiki/Brainfuck_algorithms
+https://esolangs.org/wiki/Brainfuck_constants
